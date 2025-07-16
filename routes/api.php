@@ -1,37 +1,18 @@
 <?php
 
-use Illuminate\Http\Request;
+use App\Http\Controllers\LeadController;
+use App\Http\Controllers\AuthController;
 use Illuminate\Support\Facades\Route;
-use App\Models\User;
-use Illuminate\Support\Facades\Hash;
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "api" middleware group. Make something great!
-|
-*/
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
-});
-Route::post('/sanctum/token', function (Request $request) {
-    $request->validate([
-        'email' => 'required|email',
-        'password' => 'required',
-        'device_name' => 'required',
-    ]);
+Route::post('/login', [AuthController::class, 'login'])->name('api.login');
 
-    $user = User::where('email', $request->email)->first();
-
-    if (! $user || ! Hash::check($request->password, $user->password)) {
-        return response()->json(['error' => 'Invalid credentials'], 401);
-    }
-
-    $token = $user->createToken($request->device_name)->plainTextToken;
-
-    return response()->json(['token' => $token]);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/leads', [LeadController::class, 'index'])->name('api.leads.index');
+    Route::get('/leads/{lead}', [LeadController::class, 'show'])->name('api.leads.show');
+    Route::post('/leads', [LeadController::class, 'store'])->name('api.leads.store');
+    Route::put('/leads/{lead}', [LeadController::class, 'update'])->name('api.leads.update');
+    Route::delete('/leads/{lead}', [LeadController::class, 'destroy'])->name('api.leads.destroy');
+    Route::post('/leads/{lead}/assign', [LeadController::class, 'assign'])->name('api.leads.assign');
+    Route::post('/leads/{lead}/status', [LeadController::class, 'updateStatus'])->name('api.leads.status');
+    Route::post('/leads/{lead}/note', [LeadController::class, 'addNote'])->name('api.leads.note');
 });

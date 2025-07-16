@@ -15,13 +15,18 @@ class LeadController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('auth');
+        $this->middleware('auth')->except(['index', 'show', 'store', 'update', 'destroy', 'assign', 'updateStatus', 'addNote']);
+        $this->middleware('auth:sanctum')->only(['index', 'show', 'store', 'update', 'destroy', 'assign', 'updateStatus', 'addNote']);
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $this->authorize('viewAny', Lead::class);
         $leads = Lead::with('assignedTo')->get();
+
+        if ($request->expectsJson()) {
+            return response()->json(['leads' => $leads]);
+        }
         return view('leads.index', compact('leads'));
     }
 
@@ -58,13 +63,20 @@ class LeadController extends Controller
             ]);
         }
 
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Lead created successfully', 'lead' => $lead], 201);
+        }
         return redirect()->route('leads.index')->with('success', 'Lead created successfully.');
     }
 
-    public function show(Lead $lead)
+    public function show(Lead $lead, Request $request)
     {
         $this->authorize('view', $lead);
         $lead->load('assignedTo', 'activities.user');
+
+        if ($request->expectsJson()) {
+            return response()->json(['lead' => $lead]);
+        }
         return view('leads.show', compact('lead'));
     }
 
@@ -99,10 +111,13 @@ class LeadController extends Controller
             ]);
         }
 
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Lead updated successfully', 'lead' => $lead]);
+        }
         return redirect()->route('leads.index')->with('success', 'Lead updated successfully.');
     }
 
-    public function destroy(Lead $lead)
+    public function destroy(Lead $lead, Request $request)
     {
         $this->authorize('delete', $lead);
         $lead->activities()->create([
@@ -111,6 +126,10 @@ class LeadController extends Controller
             'notes' => 'Lead deleted',
         ]);
         $lead->delete();
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Lead deleted successfully'], 204);
+        }
         return redirect()->route('leads.index')->with('success', 'Lead deleted successfully.');
     }
 
@@ -189,9 +208,9 @@ class LeadController extends Controller
 
     public function activities(Request $request)
     {
-        $this->authorize('viewAny', Lead::class); // Only admins can view all activities
+        $this->authorize('viewAny', Lead::class);
         $query = \App\Models\LeadActivity::with(['lead', 'user'])
-            ->whereHas('lead') // Only include activities with existing leads
+            ->whereHas('lead')
             ->orderBy('created_at', 'desc');
 
         if ($request->filled('lead_id')) {
