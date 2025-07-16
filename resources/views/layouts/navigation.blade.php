@@ -8,8 +8,10 @@
                 <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
                     <a href="{{ route('dashboard') }}" class="border-b-2 {{ Route::is('dashboard') ? 'border-indigo-400' : 'border-transparent' }} text-gray-600 hover:text-gray-900 hover:border-indigo-400 px-3 py-2">Dashboard</a>
                     @can('viewAny', \App\Models\Lead::class)
-                        <a href="{{ route('leads.index') }}" class="border-b-2 {{ Route::is('leads.*') ? 'border-indigo-400' : 'border-transparent' }} text-gray-600 hover:text-gray-900 hover:border-indigo-400 px-3 py-2">Leads</a>
+                        <a href="{{ route('leads.index') }}" class="border-b-2 {{ Route::is('leads.index') ? 'border-indigo-400' : 'border-transparent' }} text-gray-600 hover:text-gray-900 hover:border-indigo-400 px-3 py-2">Leads</a>
+                        <a href="{{ route('leads.activities') }}" class="border-b-2 {{ Route::is('leads.activities') ? 'border-indigo-400' : 'border-transparent' }} text-gray-600 hover:text-gray-900 hover:border-indigo-400 px-3 py-2">Activities</a>
                     @endcan
+                    <a href="{{ route('leads.my-leads') }}" class="border-b-2 {{ Route::is('leads.my-leads') ? 'border-indigo-400' : 'border-transparent' }} text-gray-600 hover:text-gray-900 hover:border-indigo-400 px-3 py-2">My Leads</a>
                 </div>
             </div>
             <div class="hidden sm:flex sm:items-center sm:ms-6">

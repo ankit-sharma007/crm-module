@@ -34,20 +34,28 @@
                             <td class="px-6 py-4">{{ $lead->phone ?? 'N/A' }}</td>
                             <td class="px-6 py-4">{{ ucfirst($lead->status->value) }}</td>
                             <td class="px-6 py-4">
-                                <select onchange="assignLead({{ $lead->id }}, this.value)" class="border rounded p-1">
-                                    <option value="">Unassigned</option>
-                                    @foreach (\App\Models\User::where('is_admin', false)->get() as $agent)
-                                        <option value="{{ $agent->id }}" {{ $lead->assigned_to == $agent->id ? 'selected' : '' }}>{{ $agent->name }}</option>
-                                    @endforeach
-                                </select>
+                                @can('assign', \App\Models\Lead::class)
+                                    <select onchange="assignLead({{ $lead->id }}, this.value, this)" class="border rounded p-1">
+                                        <option value="">Unassigned</option>
+                                        @foreach (\App\Models\User::where('is_admin', false)->get() as $agent)
+                                            <option value="{{ $agent->id }}" {{ $lead->assigned_to == $agent->id ? 'selected' : '' }}>{{ $agent->name }}</option>
+                                        @endforeach
+                                    </select>
+                                @else
+                                    {{ $lead->assignedTo->name ?? 'Unassigned' }}
+                                @endcan
                             </td>
                             <td class="px-6 py-4">
-                                <a href="{{ route('leads.edit', $lead) }}" class="text-blue-500">Edit</a>
-                                <form action="{{ route('leads.destroy', $lead) }}" method="POST" class="inline">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="text-red-500 ml-2" onclick="return confirm('Are you sure?')">Delete</button>
-                                </form>
+                                @can('update', $lead)
+                                    <a href="{{ route('leads.edit', $lead) }}" class="text-blue-500">Edit</a>
+                                @endcan
+                                @can('delete', $lead)
+                                    <form action="{{ route('leads.destroy', $lead) }}" method="POST" class="inline">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="text-red-500 ml-2" onclick="return confirm('Are you sure?')">Delete</button>
+                                    </form>
+                                @endcan
                             </td>
                         </tr>
                     @endforeach
@@ -57,27 +65,36 @@
     </div>
 
     <script>
-        function assignLead(leadId, userId) {
-            const url = `{{ route('leads.assign', ':leadId') }}`.replace(':leadId', leadId);
+        function assignLead(leadId, userId, selectElement) {
+            const csrfToken = "{{csrf_token()}}";
+            if (!csrfToken) {
+                console.error('CSRF token not found');
+                alert('CSRF token not found. Please refresh the page.');
+                return;
+            }
+
+            const url = '{{ route("leads.assign", ":leadId") }}'.replace(':leadId', leadId);
             fetch(url, {
                 method: 'POST',
                 headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'X-CSRF-TOKEN': csrfToken,
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
                 },
                 body: JSON.stringify({ assigned_to: userId || null })
             })
             .then(response => {
-                if (!response.ok) throw new Error('Network response was not ok');
+                if (!response.ok) throw new Error('Network response was not ok: ' + response.statusText);
                 return response.json();
             })
             .then(data => {
                 alert(data.message);
+                selectElement.value = userId || '';
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('Error assigning lead:', error);
                 alert('Failed to assign lead. Please try again.');
+                selectElement.value = '{{ $lead->assigned_to ?? '' }}';
             });
         }
     </script>

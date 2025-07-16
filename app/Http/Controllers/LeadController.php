@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreLeadRequest;
 use App\Http\Requests\UpdateLeadRequest;
+use App\Http\Requests\UpdateLeadStatusRequest;
+use App\Http\Requests\AddLeadNoteRequest;
 use App\Models\Lead;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -23,6 +25,12 @@ class LeadController extends Controller
         return view('leads.index', compact('leads'));
     }
 
+    public function myLeads()
+    {
+        $leads = Lead::where('assigned_to', Auth::id())->with('assignedTo')->get();
+        return view('leads.my-leads', compact('leads'));
+    }
+
     public function create()
     {
         $this->authorize('create', Lead::class);
@@ -35,11 +43,17 @@ class LeadController extends Controller
         $data = $request->validated();
         $lead = Lead::create($data);
 
+        $lead->activities()->create([
+            'user_id' => Auth::id(),
+            'action' => \App\Enums\LeadActivityAction::CREATED->value,
+            'notes' => 'Lead created',
+        ]);
+
         if ($request->filled('assigned_to')) {
             $lead->assignedTo()->associate($request->assigned_to)->save();
             $lead->activities()->create([
                 'user_id' => Auth::id(),
-                'action' => \App\Enums\LeadActivityAction::ASSIGNED,
+                'action' => \App\Enums\LeadActivityAction::ASSIGNED->value,
                 'notes' => 'Lead assigned to ' . User::find($request->assigned_to)->name,
             ]);
         }
@@ -72,15 +86,15 @@ class LeadController extends Controller
             $lead->assignedTo()->associate($request->assigned_to)->save();
             $lead->activities()->create([
                 'user_id' => Auth::id(),
-                'action' => \App\Enums\LeadActivityAction::ASSIGNED,
+                'action' => \App\Enums\LeadActivityAction::ASSIGNED->value,
                 'notes' => 'Lead assigned to ' . User::find($request->assigned_to)->name,
             ]);
         }
 
-        if ($originalStatus !== $data['status']) {
+        if ($originalStatus->value !== $data['status']) {
             $lead->activities()->create([
                 'user_id' => Auth::id(),
-                'action' => \App\Enums\LeadActivityAction::STATUS_UPDATED,
+                'action' => \App\Enums\LeadActivityAction::STATUS_UPDATED->value,
                 'notes' => "Status changed from {$originalStatus->value} to {$data['status']}",
             ]);
         }
@@ -91,6 +105,11 @@ class LeadController extends Controller
     public function destroy(Lead $lead)
     {
         $this->authorize('delete', $lead);
+        $lead->activities()->create([
+            'user_id' => Auth::id(),
+            'action' => \App\Enums\LeadActivityAction::DELETED->value,
+            'notes' => 'Lead deleted',
+        ]);
         $lead->delete();
         return redirect()->route('leads.index')->with('success', 'Lead deleted successfully.');
     }
@@ -101,12 +120,95 @@ class LeadController extends Controller
         $request->validate(['assigned_to' => 'nullable|exists:users,id']);
 
         $lead->assignedTo()->associate($request->assigned_to)->save();
-        $lead->activities()->create([
+        $activity = $lead->activities()->create([
             'user_id' => Auth::id(),
-            'action' => \App\Enums\LeadActivityAction::ASSIGNED,
+            'action' => \App\Enums\LeadActivityAction::ASSIGNED->value,
             'notes' => $request->assigned_to ? 'Lead assigned to ' . User::find($request->assigned_to)->name : 'Lead unassigned',
-        ]);
+        ])->load('user');
 
-        return response()->json(['message' => 'Lead assigned successfully']);
+        return response()->json([
+            'message' => 'Lead assigned successfully',
+            'activity' => [
+                'action' => ucfirst($activity->action->value),
+                'user' => $activity->user->name,
+                'created_at' => $activity->created_at->format('Y-m-d H:i:s'),
+                'notes' => $activity->notes ?? 'N/A',
+            ]
+        ]);
+    }
+
+    public function updateStatus(UpdateLeadStatusRequest $request, Lead $lead)
+    {
+        $this->authorize('updateStatus', $lead);
+        $data = $request->validated();
+        $originalStatus = $lead->status;
+
+        $lead->update(['status' => $data['status']]);
+
+        $activity = null;
+        if ($originalStatus->value !== $data['status']) {
+            $activity = $lead->activities()->create([
+                'user_id' => Auth::id(),
+                'action' => \App\Enums\LeadActivityAction::STATUS_UPDATED->value,
+                'notes' => "Status changed from {$originalStatus->value} to {$data['status']}",
+            ])->load('user');
+        }
+
+        return response()->json([
+            'message' => 'Status updated successfully',
+            'activity' => $activity ? [
+                'action' => ucfirst($activity->action->value),
+                'user' => $activity->user->name,
+                'created_at' => $activity->created_at->format('Y-m-d H:i:s'),
+                'notes' => $activity->notes ?? 'N/A',
+            ] : null
+        ]);
+    }
+
+    public function addNote(AddLeadNoteRequest $request, Lead $lead)
+    {
+        $this->authorize('addNote', $lead);
+        $data = $request->validated();
+
+        $activity = $lead->activities()->create([
+            'user_id' => Auth::id(),
+            'action' => \App\Enums\LeadActivityAction::COMMENTED->value,
+            'notes' => $data['notes'],
+        ])->load('user');
+
+        return response()->json([
+            'message' => 'Note added successfully',
+            'activity' => [
+                'action' => ucfirst($activity->action->value),
+                'user' => $activity->user->name,
+                'created_at' => $activity->created_at->format('Y-m-d H:i:s'),
+                'notes' => $activity->notes ?? 'N/A',
+            ]
+        ]);
+    }
+
+    public function activities(Request $request)
+    {
+        $this->authorize('viewAny', Lead::class); // Only admins can view all activities
+        $query = \App\Models\LeadActivity::with(['lead', 'user'])
+            ->whereHas('lead') // Only include activities with existing leads
+            ->orderBy('created_at', 'desc');
+
+        if ($request->filled('lead_id')) {
+            $query->where('lead_id', $request->lead_id);
+        }
+        if ($request->filled('user_id')) {
+            $query->where('user_id', $request->user_id);
+        }
+        if ($request->filled('action')) {
+            $query->where('action', $request->action);
+        }
+
+        $activities = $query->get();
+        $leads = Lead::all()->pluck('first_name', 'id');
+        $users = User::all()->pluck('name', 'id');
+        $actions = array_column(\App\Enums\LeadActivityAction::cases(), 'value');
+
+        return view('leads.activities', compact('activities', 'leads', 'users', 'actions'));
     }
 }
