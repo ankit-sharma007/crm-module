@@ -3,7 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LeadController;
-
+use App\Http\Controllers\DashboardController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -20,13 +20,14 @@ Route::get('/', function () {
 });
 
 
+Route::get('/test-email', function () {
+    Mail::to('test@example.com')->send(new TestEmail());
+    return 'Test email sent!';
+})->middleware('auth');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
-
-Route::resource('leads', LeadController::class);
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::resource('leads', LeadController::class);
     Route::post('leads/{lead}/assign', [LeadController::class, 'assign'])->name('leads.assign');
     Route::get('my-leads', [LeadController::class, 'myLeads'])->name('leads.my-leads');
     Route::post('leads/{lead}/status', [LeadController::class, 'updateStatus'])->name('leads.status');

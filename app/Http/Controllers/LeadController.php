@@ -8,6 +8,8 @@ use App\Http\Requests\UpdateLeadStatusRequest;
 use App\Http\Requests\AddLeadNoteRequest;
 use App\Models\Lead;
 use App\Models\User;
+use App\Notifications\LeadAssignedNotification;
+use App\Notifications\LeadStatusUpdatedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -22,7 +24,7 @@ class LeadController extends Controller
     public function index(Request $request)
     {
         $this->authorize('viewAny', Lead::class);
-        $leads = Lead::with('assignedTo')->paginate(10); // Paginate 10 per page
+        $leads = Lead::with('assignedTo')->paginate(10);
 
         if ($request->expectsJson()) {
             return response()->json(['leads' => $leads]);
@@ -61,6 +63,10 @@ class LeadController extends Controller
                 'action' => \App\Enums\LeadActivityAction::ASSIGNED->value,
                 'notes' => 'Lead assigned to ' . User::find($request->assigned_to)->name,
             ]);
+            if ($request->assigned_to) {
+                $agent = User::find($request->assigned_to);
+                $agent->notify(new LeadAssignedNotification($lead));
+            }
         }
 
         if ($request->expectsJson()) {
@@ -101,6 +107,10 @@ class LeadController extends Controller
                 'action' => \App\Enums\LeadActivityAction::ASSIGNED->value,
                 'notes' => 'Lead assigned to ' . User::find($request->assigned_to)->name,
             ]);
+            if ($request->assigned_to) {
+                $agent = User::find($request->assigned_to);
+                $agent->notify(new LeadAssignedNotification($lead));
+            }
         }
 
         if ($originalStatus->value !== $data['status']) {
@@ -109,6 +119,10 @@ class LeadController extends Controller
                 'action' => \App\Enums\LeadActivityAction::STATUS_UPDATED->value,
                 'notes' => "Status changed from {$originalStatus->value} to {$data['status']}",
             ]);
+            if ($lead->assigned_to) {
+                $agent = User::find($lead->assigned_to);
+                $agent->notify(new LeadStatusUpdatedNotification($lead, $originalStatus->value, $data['status']));
+            }
         }
 
         if ($request->expectsJson()) {
@@ -145,6 +159,11 @@ class LeadController extends Controller
             'notes' => $request->assigned_to ? 'Lead assigned to ' . User::find($request->assigned_to)->name : 'Lead unassigned',
         ])->load('user');
 
+        if ($request->assigned_to) {
+            $agent = User::find($request->assigned_to);
+            $agent->notify(new LeadAssignedNotification($lead));
+        }
+
         return response()->json([
             'message' => 'Lead assigned successfully',
             'activity' => [
@@ -171,6 +190,10 @@ class LeadController extends Controller
                 'action' => \App\Enums\LeadActivityAction::STATUS_UPDATED->value,
                 'notes' => "Status changed from {$originalStatus->value} to {$data['status']}",
             ])->load('user');
+            if ($lead->assigned_to) {
+                $agent = User::find($lead->assigned_to);
+                $agent->notify(new LeadStatusUpdatedNotification($lead, $originalStatus->value, $data['status']));
+            }
         }
 
         return response()->json([
@@ -223,7 +246,7 @@ class LeadController extends Controller
             $query->where('action', $request->action);
         }
 
-        $activities = $query->paginate(10); // Paginate 10 per page
+        $activities = $query->paginate(10);
         $leads = Lead::all()->pluck('first_name', 'id');
         $users = User::all()->pluck('name', 'id');
         $actions = array_column(\App\Enums\LeadActivityAction::cases(), 'value');
