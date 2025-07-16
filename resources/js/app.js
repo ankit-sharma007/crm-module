@@ -1,7 +1,12 @@
 import './bootstrap';
+import toastr from 'toastr';
+import 'toastr/build/toastr.min.css';
 
-import Alpine from 'alpinejs';
+window.toastr = toastr;
 
-window.Alpine = Alpine;
-
-Alpine.start();
+toastr.options = {
+    closeButton: true,
+    progressBar: true,
+    positionClass: 'toast-top-right',
+    timeOut: 3000,
+};

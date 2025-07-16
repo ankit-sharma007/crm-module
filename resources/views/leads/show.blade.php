@@ -39,7 +39,11 @@
             <ul id="activity-log" class="list-disc pl-5">
                 @foreach ($lead->activities as $activity)
                     @can('view-lead-activity', $activity)
-                        <li>{{ ucfirst($activity->action->value) }} by {{ $activity->user->name }} at {{ $activity->created_at->format('Y-m-d H:i:s') }}: {{ $activity->notes ?? 'N/A' }}</li>
+                        <li>
+                            {{ ucfirst($activity->action->value) }} by {{ $activity->user->name }} at {{ $activity->created_at->format('Y-m-d H:i:s') }}:
+                            {{ $activity->notes ?? 'N/A' }}
+                            (Lead: {{ $activity->lead ? $activity->lead->first_name . ' ' . $activity->lead->last_name : 'Deleted Lead' }})
+                        </li>
                     @endcan
                 @endforeach
             </ul>
@@ -51,7 +55,7 @@
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
             if (!csrfToken) {
                 console.error('CSRF token not found');
-                alert('CSRF token not found. Please refresh the page.');
+                toastr.error('CSRF token not found. Please refresh the page.');
                 return;
             }
 
@@ -70,26 +74,26 @@
                 return response.json();
             })
             .then(data => {
-                alert(data.message);
+                toastr.success(data.message);
                 if (data.activity) {
                     const activityList = document.getElementById('activity-log');
                     const li = document.createElement('li');
-                    li.textContent = `${data.activity.action || ''} by ${data.activity.user || 'Unknown'} at ${data.activity.created_at || ''}: ${data.activity.notes || 'N/A'}`;
+                    li.textContent = `${data.activity.action} by ${data.activity.user} at ${data.activity.created_at}: ${data.activity.notes || 'N/A'} (Lead: {{ $lead->first_name }} {{ $lead->last_name }})`;
                     activityList.prepend(li);
                 }
             })
             .catch(error => {
                 console.error('Error updating status:', error);
-                alert('Failed to update status. Please try again.');
+                toastr.error('Failed to update status. Please try again.');
             });
         }
 
         function addNote(event, leadId) {
             event.preventDefault();
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+            const csrfToken = "{{csrf_token()}}";
             if (!csrfToken) {
                 console.error('CSRF token not found');
-                alert('CSRF token not found. Please refresh the page.');
+                toastr.error('CSRF token not found. Please refresh the page.');
                 return;
             }
 
@@ -111,18 +115,18 @@
                 return response.json();
             })
             .then(data => {
-                alert(data.message);
+                toastr.success(data.message);
                 form.reset();
                 if (data.activity) {
                     const activityList = document.getElementById('activity-log');
                     const li = document.createElement('li');
-                    li.textContent = `${data.activity.action || ''} by ${data.activity.user || 'Unknown'} at ${data.activity.created_at || ''}: ${data.activity.notes || 'N/A'}`;
+                    li.textContent = `${data.activity.action} by ${data.activity.user} at ${data.activity.created_at}: ${data.activity.notes || 'N/A'} (Lead: {{ $lead->first_name }} {{ $lead->last_name }})`;
                     activityList.prepend(li);
                 }
             })
             .catch(error => {
                 console.error('Error adding note:', error);
-                alert('Failed to add note. Please try again.');
+                toastr.error('Failed to add note. Please try again.');
             });
         }
     </script>

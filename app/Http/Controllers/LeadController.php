@@ -22,7 +22,7 @@ class LeadController extends Controller
     public function index(Request $request)
     {
         $this->authorize('viewAny', Lead::class);
-        $leads = Lead::with('assignedTo')->get();
+        $leads = Lead::with('assignedTo')->paginate(10); // Paginate 10 per page
 
         if ($request->expectsJson()) {
             return response()->json(['leads' => $leads]);
@@ -32,7 +32,7 @@ class LeadController extends Controller
 
     public function myLeads()
     {
-        $leads = Lead::where('assigned_to', Auth::id())->with('assignedTo')->get();
+        $leads = Lead::where('assigned_to', Auth::id())->with('assignedTo')->paginate(10);
         return view('leads.my-leads', compact('leads'));
     }
 
@@ -223,11 +223,14 @@ class LeadController extends Controller
             $query->where('action', $request->action);
         }
 
-        $activities = $query->get();
+        $activities = $query->paginate(10); // Paginate 10 per page
         $leads = Lead::all()->pluck('first_name', 'id');
         $users = User::all()->pluck('name', 'id');
         $actions = array_column(\App\Enums\LeadActivityAction::cases(), 'value');
 
+        if ($request->expectsJson()) {
+            return response()->json(['activities' => $activities]);
+        }
         return view('leads.activities', compact('activities', 'leads', 'users', 'actions'));
     }
 }

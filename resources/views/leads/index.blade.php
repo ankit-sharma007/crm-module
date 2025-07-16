@@ -62,6 +62,9 @@
                 </tbody>
             </table>
         </div>
+        <div class="mt-4">
+            {{ $leads->links() }}
+        </div>
     </div>
 
     <script>
@@ -69,7 +72,7 @@
             const csrfToken = "{{csrf_token()}}";
             if (!csrfToken) {
                 console.error('CSRF token not found');
-                alert('CSRF token not found. Please refresh the page.');
+                toastr.error('CSRF token not found. Please refresh the page.');
                 return;
             }
 
@@ -88,12 +91,12 @@
                 return response.json();
             })
             .then(data => {
-                alert(data.message);
+                toastr.success(data.message);
                 selectElement.value = userId || '';
             })
             .catch(error => {
                 console.error('Error assigning lead:', error);
-                alert('Failed to assign lead. Please try again.');
+                toastr.error('Failed to assign lead. Please try again.');
                 selectElement.value = '{{ $lead->assigned_to ?? '' }}';
             });
         }

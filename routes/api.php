@@ -15,4 +15,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/leads/{lead}/assign', [LeadController::class, 'assign'])->name('api.leads.assign');
     Route::post('/leads/{lead}/status', [LeadController::class, 'updateStatus'])->name('api.leads.status');
     Route::post('/leads/{lead}/note', [LeadController::class, 'addNote'])->name('api.leads.note');
+    Route::get('/leads/activities', [LeadController::class, 'activities'])->name('api.leads.activities');
 });
